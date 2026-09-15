@@ -1,0 +1,369 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Sentinel — AI Threat Detection Suite</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none'%3E%3Cpath d='M12 2L4 5V11C4 16.5 7.4 20.7 12 22C16.6 20.7 20 16.5 20 11V5L12 2Z' stroke='%234FD1C5' stroke-width='1.8' stroke-linejoin='round'/%3E%3Cpath d='M9 11.8L11 13.8L15.2 9.4' stroke='%234FD1C5' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E">
+<meta name="description" content="Sentinel — AI-powered URL, file, email, and intrusion threat detection suite.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+
+<div class="scan-sweep" id="introSweep"></div>
+
+<header class="topbar">
+  <div class="brand">
+    <svg class="brand-mark" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <path d="M12 2L4 5V11C4 16.5 7.4 20.7 12 22C16.6 20.7 20 16.5 20 11V5L12 2Z" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/>
+      <path d="M9 11.8L11 13.8L15.2 9.4" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+    </svg>
+    <div class="brand-text">
+      <span class="brand-name">Sentinel</span>
+      <span class="brand-sub">AI Threat Detection Suite</span>
+    </div>
+  </div>
+  <nav class="tabs" id="mainTabs">
+    <button class="tab active" data-tab="scan">URL</button>
+    <button class="tab" data-tab="batch">Batch</button>
+    <button class="tab" data-tab="files">Files</button>
+    <button class="tab" data-tab="email">Email</button>
+    <button class="tab" data-tab="threats">Threats <span class="tab-dot" id="threatTabDot" style="display:none;"></span></button>
+    <button class="tab" data-tab="dashboard">Dashboard</button>
+    <button class="tab" data-tab="history">History</button>
+    <button class="tab" data-tab="about">Model</button>
+  </nav>
+  <div class="status-pill" id="apiStatus">
+    <span class="dot" id="apiDot"></span>
+    <span id="apiStatusText">checking API…</span>
+  </div>
+</header>
+
+<main class="app-shell">
+
+  <!-- ============ SCAN TAB ============ -->
+  <section class="panel view active" id="view-scan">
+    <div class="scan-grid">
+
+      <div class="scan-input-col">
+        <h1 class="headline">Is this link safe to open?</h1>
+        <p class="subhead">
+          Paste a URL below. Sentinel extracts 40 structural and
+          brand-similarity signals and scores the link in real time —
+          no click required.
+        </p>
+
+        <div class="reticle-wrap">
+          <span class="corner tl"></span><span class="corner tr"></span>
+          <span class="corner bl"></span><span class="corner br"></span>
+          <input type="text" id="urlInput" class="url-input"
+                 placeholder="http://secure-login-paypal-verification.xyz"
+                 autocomplete="off" spellcheck="false">
+        </div>
+
+        <div class="scan-actions">
+          <button class="btn btn-primary" id="scanBtn">
+            <span id="scanBtnLabel">Scan URL</span>
+          </button>
+          <label class="threshold-control">
+            <span>Sensitivity</span>
+            <input type="range" id="thresholdSlider" min="0.1" max="0.9" step="0.05" value="0.5">
+            <span id="thresholdValue" class="mono">0.50</span>
+          </label>
+        </div>
+
+        <div class="examples">
+          <span class="examples-label">Try:</span>
+          <button class="chip chip-danger" data-example="http://secure-login-paypal-verification.xyz">paypal-verification.xyz</button>
+          <button class="chip chip-danger" data-example="http://paypa1-security.top/login">paypa1-security.top</button>
+          <button class="chip chip-safe" data-example="https://www.github.com">github.com</button>
+          <button class="chip chip-safe" data-example="https://www.wikipedia.org">wikipedia.org</button>
+        </div>
+      </div>
+
+      <div class="scan-result-col">
+        <div class="dial-card" id="resultCard">
+          <div class="dial-wrap">
+            <svg viewBox="0 0 200 200" class="dial-svg">
+              <circle cx="100" cy="100" r="82" class="dial-track"/>
+              <circle cx="100" cy="100" r="82" class="dial-arc" id="dialArc"
+                      stroke-dasharray="515.2" stroke-dashoffset="515.2"/>
+            </svg>
+            <div class="dial-center">
+              <span class="dial-value mono" id="dialValue">--</span>
+              <span class="dial-unit">risk score</span>
+            </div>
+          </div>
+          <div class="verdict" id="verdictBadge">Awaiting scan</div>
+
+          <div class="reasons-block" id="reasonsBlock">
+            <p class="empty-hint">Results and detection reasons will appear here after you scan a URL.</p>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </section>
+
+  <!-- ============ BATCH TAB ============ -->
+  <section class="panel view" id="view-batch">
+    <h1 class="headline">Batch scan a list of links</h1>
+    <p class="subhead">Paste one URL per line — useful for checking every link pulled from a suspicious email — or upload a CSV with a <span class="mono">url</span> column.</p>
+
+    <div class="batch-grid">
+      <div>
+        <textarea id="batchTextarea" class="batch-textarea" rows="10"
+          placeholder="http://secure-login-paypal-verification.xyz
+https://www.google.com
+http://bit.ly/x7z9qA
+https://github.com"></textarea>
+        <div class="batch-actions">
+          <label class="btn btn-ghost file-btn">
+            Upload CSV
+            <input type="file" id="csvUpload" accept=".csv" hidden>
+          </label>
+          <button class="btn btn-primary" id="batchScanBtn">Scan all</button>
+        </div>
+      </div>
+      <div class="batch-summary" id="batchSummary">
+        <div class="empty-hint">Batch results will summarize here.</div>
+      </div>
+    </div>
+
+    <div class="table-wrap">
+      <table class="data-table" id="batchTable">
+        <thead>
+          <tr><th>URL</th><th>Verdict</th><th>Risk</th><th>Top reason</th></tr>
+        </thead>
+        <tbody></tbody>
+      </table>
+    </div>
+    <button class="btn btn-ghost" id="downloadBatchCsv" style="display:none;">Download results (CSV)</button>
+  </section>
+
+  <!-- ============ FILES TAB ============ -->
+  <section class="panel view" id="view-files">
+    <h1 class="headline">Scan a file for hidden threats</h1>
+    <p class="subhead">
+      Static analysis only — nothing is ever opened, run, or executed.
+      Sentinel checks the file's real signature against its extension,
+      scans for embedded macros, packed/encrypted payloads, and known
+      malicious code strings — plus format-specific deep scans: embedded
+      JavaScript/auto-run actions in PDFs, hidden data in images
+      (steganography), and dangerous permission combinations in Android
+      APKs.
+    </p>
+
+    <div class="file-drop" id="fileDrop">
+      <input type="file" id="fileInput" hidden>
+      <div class="file-drop-inner">
+        <svg viewBox="0 0 24 24" width="30" height="30" fill="none" stroke="currentColor" stroke-width="1.5">
+          <path d="M12 3v12m0 0l-4-4m4 4l4-4M4 17v2a2 2 0 002 2h12a2 2 0 002-2v-2" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+        <p><strong>Drop a file</strong> or click to browse</p>
+        <p class="file-drop-hint">Documents (.pdf .docx .xlsx) or executables (.exe .apk .zip) — max 25 MB</p>
+      </div>
+    </div>
+
+    <div class="file-result" id="fileResult"></div>
+
+    <div class="table-wrap" style="margin-top:24px;">
+      <table class="data-table" id="fileHistoryTable">
+        <thead><tr><th>Time</th><th>Filename</th><th>Verdict</th><th>Risk</th><th>SHA-256</th></tr></thead>
+        <tbody></tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- ============ EMAIL TAB ============ -->
+  <section class="panel view" id="view-email">
+    <h1 class="headline">Check an email for phishing / spam</h1>
+    <p class="subhead">
+      Paste a full email (headers + body, e.g. from "view source"/.eml) or
+      just the body text. Sentinel checks sender spoofing, urgency
+      language, and scores every embedded link.
+    </p>
+
+    <textarea id="emailTextarea" class="batch-textarea" rows="12" placeholder="From: PayPal Security <security@paypa1-alerts.xyz>
+Reply-To: scammer@totally-different-domain.ru
+Subject: URGENT: Your account has been suspended!!!
+
+Dear Customer, we noticed unusual activity on your account...
+http://secure-login-paypal-verification.xyz/verify"></textarea>
+
+    <div class="batch-actions">
+      <button class="btn btn-primary" id="emailScanBtn">Analyze email</button>
+      <button class="btn btn-ghost" id="emailExampleBtn">Load phishing example</button>
+    </div>
+
+    <div class="file-result" id="emailResult"></div>
+
+    <div class="table-wrap" style="margin-top:24px;">
+      <table class="data-table" id="emailHistoryTable">
+        <thead><tr><th>Time</th><th>Subject</th><th>Sender</th><th>Verdict</th><th>Risk</th></tr></thead>
+        <tbody></tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- ============ THREATS TAB ============ -->
+  <section class="panel view" id="view-threats">
+    <div class="history-header">
+      <div>
+        <h1 class="headline">Threat &amp; intrusion detection</h1>
+        <p class="subhead">
+          Upload a server/auth log to hunt for brute-force, SQL injection,
+          and scanning activity — plus a live feed of suspicious traffic
+          hitting this app right now (self-monitoring).
+        </p>
+      </div>
+      <button class="btn btn-ghost" id="clearThreatsBtn">Clear feed</button>
+    </div>
+
+    <div class="batch-grid">
+      <div>
+        <textarea id="logTextarea" class="batch-textarea" rows="9" placeholder="Paste Apache/Nginx access log lines or Linux auth.log SSH lines here…"></textarea>
+        <div class="batch-actions">
+          <label class="btn btn-ghost file-btn">
+            Upload log file
+            <input type="file" id="logUpload" accept=".log,.txt" hidden>
+          </label>
+          <button class="btn btn-primary" id="logScanBtn">Analyze log</button>
+          <button class="btn btn-ghost" id="logExampleBtn">Load example</button>
+        </div>
+      </div>
+      <div class="batch-summary" id="logSummary">
+        <div class="empty-hint">Log analysis summary will appear here.</div>
+      </div>
+    </div>
+
+    <h3 class="section-subheading">Live threat feed <span class="mono live-indicator" id="liveIndicator">● monitoring</span></h3>
+    <div class="table-wrap">
+      <table class="data-table" id="threatsTable">
+        <thead><tr><th>Time</th><th>Source</th><th>IP</th><th>Type</th><th>Severity</th><th>Detail</th></tr></thead>
+        <tbody></tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- ============ DASHBOARD TAB ============ -->
+  <section class="panel view" id="view-dashboard">
+    <h1 class="headline">Detection dashboard</h1>
+    <p class="subhead">Aggregate stats across every scan this app has ever run, stored locally in SQLite.</p>
+
+    <div class="stat-row">
+      <div class="stat-card">
+        <span class="stat-value mono" id="statTotal">0</span>
+        <span class="stat-label">URLs scanned</span>
+      </div>
+      <div class="stat-card stat-danger">
+        <span class="stat-value mono" id="statPhish">0</span>
+        <span class="stat-label">Phishing URLs</span>
+      </div>
+      <div class="stat-card">
+        <span class="stat-value mono" id="statFiles">0</span>
+        <span class="stat-label">Files scanned</span>
+      </div>
+      <div class="stat-card stat-danger">
+        <span class="stat-value mono" id="statFilesFlagged">0</span>
+        <span class="stat-label">Flagged files</span>
+      </div>
+      <div class="stat-card">
+        <span class="stat-value mono" id="statEmails">0</span>
+        <span class="stat-label">Emails scanned</span>
+      </div>
+      <div class="stat-card stat-danger">
+        <span class="stat-value mono" id="statEmailsFlagged">0</span>
+        <span class="stat-label">Flagged emails</span>
+      </div>
+      <div class="stat-card">
+        <span class="stat-value mono" id="statThreats">0</span>
+        <span class="stat-label">Threat events</span>
+      </div>
+      <div class="stat-card stat-danger">
+        <span class="stat-value mono" id="statCritical">0</span>
+        <span class="stat-label">Critical threats</span>
+      </div>
+    </div>
+
+    <div class="dashboard-charts">
+      <div class="chart-card">
+        <h3>URL scans: safe vs. phishing</h3>
+        <canvas id="pieChart"></canvas>
+      </div>
+      <div class="chart-card">
+        <h3>Recent URL scan timeline</h3>
+        <canvas id="timelineChart"></canvas>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ HISTORY TAB ============ -->
+  <section class="panel view" id="view-history">
+    <div class="history-header">
+      <div>
+        <h1 class="headline">Scan history</h1>
+        <p class="subhead">Every scan is saved to a local SQLite database, so history persists across restarts.</p>
+      </div>
+      <button class="btn btn-ghost" id="clearHistoryBtn">Clear history</button>
+    </div>
+    <div class="table-wrap">
+      <table class="data-table" id="historyTable">
+        <thead>
+          <tr><th>Time</th><th>URL</th><th>Verdict</th><th>Risk</th><th>Reasons</th></tr>
+        </thead>
+        <tbody></tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- ============ ABOUT / MODEL TAB ============ -->
+  <section class="panel view" id="view-about">
+    <h1 class="headline">How Sentinel decides</h1>
+    <p class="subhead">
+      A RandomForestClassifier trained on 40 lexical, structural, and
+      brand-similarity features extracted directly from the URL string —
+      no live network calls needed, so scoring is instant.
+    </p>
+
+    <div class="about-grid">
+      <div class="about-block">
+        <h3>Feature families</h3>
+        <ul class="feature-list">
+          <li><span class="mono">length &amp; structure</span> — URL/host/path length, dot &amp; hyphen counts, special characters</li>
+          <li><span class="mono">obfuscation</span> — IP-literal hosts, punycode, homoglyphs, percent-encoding, shorteners</li>
+          <li><span class="mono">brand similarity</span> — typosquat edit-distance to 20+ commonly-spoofed brands</li>
+          <li><span class="mono">semantic</span> — login/verification keyword density, redirect parameters, malware-style file extensions</li>
+          <li><span class="mono">statistical</span> — domain entropy, digit/letter ratio, case-switch anomalies</li>
+        </ul>
+      </div>
+      <div class="chart-card">
+        <h3>What the model weighs most</h3>
+        <canvas id="importanceChart"></canvas>
+      </div>
+    </div>
+
+    <div class="disclaimer">
+      Educational project. Trained on a synthetic, rule-generated dataset —
+      swap in real labeled data (PhishTank / OpenPhish) for production use.
+      Not a substitute for enterprise email/web security filtering.
+    </div>
+  </section>
+
+</main>
+
+<footer class="site-footer">
+  <span>Sentinel — educational security suite. Static/heuristic analysis only; not a substitute for production-grade security tooling.</span>
+  <span class="footer-links">
+    <a href="/docs" target="_blank" rel="noopener">API docs</a>
+    <span class="footer-sep">·</span>
+    <span class="mono">40-feature URL model · file · email · intrusion detection</span>
+  </span>
+</footer>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
+<script src="/static/app.js"></script>
+</body>
+</html>
